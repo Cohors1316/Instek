@@ -1,15 +1,6 @@
 """requires pyserial"""
 from enum import Enum
 from time import sleep
-from typing import overload, TypeVar, Self
-import importlib
-
-try:
-    importlib.import_module("pyserial")
-except ImportError:
-    import subprocess
-
-    subprocess.check_call(["pip", "install", "pyserial"])
 from serial import Serial
 from serial.tools.list_ports import comports
 
@@ -214,7 +205,7 @@ def get_current(serial_port: Serial, channel: Channel) -> Current:
     )
 
 
-class GPD3303:
+class Supply:
     manufacturer: str
     model: str
     serial: str
@@ -265,11 +256,11 @@ class GPD3303:
                 )
             else:
                 raise Exception(
-                    "Either this is not a GPD3303, or could not connect to GPD3303"
+                    "Either this is not a Supply, or could not connect to Supply"
                 )
         except:
             raise Exception(
-                "Either this is not a GPD3303, or could not connect to GPD3303"
+                "Either this is not a Supply, or could not connect to Supply"
             )
 
     def __str__(self) -> str:
@@ -583,12 +574,12 @@ class GPD3303:
                 return "( ) ( ) ( ) (1-) (1+) (3-) (3+)"
 
 
-def get_gpds() -> list[GPD3303]:
+def get_gpds() -> list[Supply]:
     ports = [port for port in comports() if port.manufacturer == "FTDI"]
     gpds = []
     for port in ports:
         try:
-            gpd = GPD3303(port.name)
+            gpd = Supply(port.name)
             gpds.append(gpd)
         except:
             pass
