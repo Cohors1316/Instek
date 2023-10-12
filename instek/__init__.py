@@ -1,6 +1,15 @@
 """requires pyserial"""
-from enum import Enum
 from time import sleep
+from typing import overload, TypeVar, Union, Literal
+from .types import (
+    Voltage,
+    Current,
+    Channel,
+    Tracking,
+    Mode,
+    Common,
+    State,
+)
 from serial import Serial
 from serial.tools.list_ports import comports
 
@@ -22,202 +31,76 @@ __all__ = [
 T = TypeVar("T")
 
 
-class UnitBase:
-    __value: float
-
-    def __init__(self, value: float = 0):
-        self.__value = float(round(value, 3))
-
-    def __str__(self) -> str:
-        return f"{self.__value}"
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.__value})"
-
-    def __float__(self) -> float:
-        return self.__value
-
-    def __int__(self) -> int:
-        return int(self.__value)
-
-    def __eq__(self, other: int | float) -> bool:
-        if isinstance(other, self.__class__):
-            return self.__value == other.__value
-        else:
-            return self.__value == other
-
-    def __gt__(self, other: int | float) -> bool:
-        if isinstance(other, self.__class__):
-            return self.__value > other.__value
-        else:
-            return self.__value > other
-
-    def __lt__(self, other: int | float) -> bool:
-        if isinstance(other, self.__class__):
-            return self.__value < other.__value
-        else:
-            return self.__value < other
-
-    def __add__(self, other: int | float) -> Self:
-        if isinstance(other, self.__class__):
-            return self.__class__(self.__value + other.__value)
-        else:
-            return self.__class__(self.__value + other)
-
-    def __sub__(self, other: int | float) -> Self:
-        if isinstance(other, self.__class__):
-            return self.__class__(self.__value - other.__value)
-        else:
-            return self.__class__(self.__value - other)
-
-    def __mul__(self, other: int | float) -> Self:
-        if isinstance(other, self.__class__):
-            return self.__class__(self.__value * other.__value)
-        else:
-            return self.__class__(self.__value * other)
-
-    def __truediv__(self, other: int | float) -> Self:
-        if isinstance(other, self.__class__):
-            return self.__class__(self.__value / other.__value)
-        else:
-            return self.__class__(self.__value / other)
-
-    def __floordiv__(self, other: int | float) -> Self:
-        if isinstance(other, self.__class__):
-            return self.__class__(self.__value // other.__value)
-        else:
-            return self.__class__(self.__value // other)
-
-
-class Voltage(UnitBase):
-    pass
-
-
-class Current(UnitBase):
-    pass
-
-
-class Common:
-    pass
-
-
-class Channel(Enum):
-    One = 1
-    Two = 2
-
-
-class Beep(Enum):
-    On = 1
-    Off = 0
-
-
-class Output(Enum):
-    On = 1
-    Off = 0
-
-
-class Tracking(Enum):
-    Independent = 0
-    Series = 1
-    Parallel = 2
-
-
-class Mode(Enum):
-    ConstantCurrent = 0
-    ConstantVoltage = 1
-
-
-class State:
-    channel_1: Mode
-    channel_2: Mode
-    output: Output
-    tracking: Tracking
-    beep: Beep
-
-    def __init__(self, response: str):
-        self.channel_1 = Mode(int(response[0]))
-        self.channel_2 = Mode(int(response[1]))
-        tracking = response[2:4]
-        if tracking == "01":
-            self.tracking = Tracking.Independent
-        elif tracking == "11":
-            self.tracking = Tracking.Series
-        elif tracking == "10":
-            self.tracking = Tracking.Parallel
-        self.beep = Beep(int(response[4]))
-        self.output = Output(int(response[5]))
-
-    def __str__(self) -> str:
-        return f"State({self.channel_1}, {self.channel_2}, {self.tracking}, {self.beep}, {self.output})"
-
-    def __repr__(self) -> str:
-        return f"State({self.channel_1}, {self.channel_2}, {self.tracking}, {self.beep}, {self.output})"
-
-
-def write_line(serial_port: Serial, command: str) -> None:
-    serial_port.write(command.encode("ascii") + b"\n")
-
-
-def read_line(serial_port: Serial) -> str:
-    return serial_port.readline().decode("ascii").strip()
-
-
-def command(serial_port: Serial, command: str) -> None:
-    while not serial_port.is_open:
-        serial_port.open()
-        sleep(0.01)
-    write_line(serial_port, command)
-    serial_port.close()
-    sleep(0.07)
-
-
-def communicate(serial_port: Serial, command: str) -> str:
-    while not serial_port.is_open:
-        serial_port.open()
-        sleep(0.01)
-    write_line(serial_port, command)
-    response = read_line(serial_port)
-    serial_port.close()
-    return response
-
-
-def status(serial_port: Serial) -> State:
-    return State(communicate(serial_port, "STATUS?"))
-
-
-def set_voltage(serial_port: Serial, channel: Channel, voltage: Voltage) -> None:
-    command(serial_port, f"VSET{channel.value}:{voltage}")
-
-
-def set_current(serial_port: Serial, channel: Channel, current: Current) -> None:
-    command(serial_port, f"ISET{channel.value}:{current}")
-
-
-def get_voltage(serial_port: Serial, channel: Channel) -> Voltage:
-    return Voltage(
-        float(communicate(serial_port, f"VOUT{channel.value}?").removesuffix("V"))
-    )
-
-
-def get_current(serial_port: Serial, channel: Channel) -> Current:
-    return Current(
-        float(communicate(serial_port, f"IOUT{channel.value}?").removesuffix("A"))
-    )
-
-
 class Supply:
-    manufacturer: str
-    model: str
-    serial: str
-    version: str
-    __channel_1_voltage: Voltage
-    __channel_2_voltage: Voltage
-    __channel_1_current: Current
-    __channel_2_current: Current
     __tracking: Tracking
-    __output: Output
-    __beep: Beep
+    __output: bool
+    __beep: bool
     __serial_port: Serial
+    __manufacturer: str
+    __model: str
+    __serial: str
+    __version: str
+    __channels: list[Channel]
+
+    @property
+    def manufacturer(self) -> str:
+        return self.__manufacturer
+
+    @property
+    def model(self) -> str:
+        return self.__model
+
+    @property
+    def serial(self) -> str:
+        return self.__serial
+
+    @property
+    def version(self) -> str:
+        return self.__version
+
+    @property
+    def beep(self) -> bool:
+        return self.__beep
+
+    @property
+    def output(self) -> bool:
+        return self.__output
+
+    @property
+    def channel(self, number: int) -> Channel:
+        return self.__channels[number - 1]
+
+    @beep.setter
+    def beep(self, value: Union[bool, int]) -> None:
+        response = self.__communicate(f"BEEP{int(value)}") != None
+        if response:
+            raise Exception("Could not set beep")
+        self.__beep = value
+
+    @output.setter
+    def output(self, value: bool) -> None:
+        response = self.__communicate(f"OUT{int(value)}") != None
+        if response:
+            raise Exception("Could not set output")
+        self.__output = value
+
+    @channel.setter
+    def channel(
+        self,
+        channel: Union[
+            Channel,
+            tuple[int, Voltage, Current],
+            tuple[int, Voltage],
+            tuple[int, Current],
+        ],
+    ):
+        if isinstance(channel, tuple):
+            number = channel[0]
+            voltage = [arg for arg in channel if isinstance(arg, Voltage)]
+            voltage = voltage[0] if any(voltage) else None
+            current = [arg for arg in channel if isinstance(arg, Current)]
+            current = current[0] if any(current) else None
+            channel = Channel(number, voltage, current)
 
     def __init__(self, port_name: str):
         self.__serial_port = Serial(
@@ -230,30 +113,18 @@ class Supply:
         )
         self.__serial_port.close()
         try:
-            response = communicate(self.__serial_port, "*IDN?")
+            response = self.__communicate("*IDN?")
             if "instek" in response.lower():
                 print(response)
                 response = response.split(",")
-                self.manufacturer = response[0]
-                self.model = response[1]
-                self.serial = response[2].split(":")[1]
-                self.version = response[3][1:]
-                state = status(self.__serial_port)
+                self.__manufacturer = response[0]
+                self.__model = response[1]
+                self.__serial = response[2].split(":")[1]
+                self.__version = response[3][1:]
+                state = self.__state()
                 self.__tracking = state.tracking
                 self.__output = state.output
                 self.__beep = state.beep
-                self.__channel_1_voltage = Voltage(
-                    float(communicate(self.__serial_port, "VSET1?").removesuffix("V"))
-                )
-                self.__channel_2_voltage = Voltage(
-                    float(communicate(self.__serial_port, "VSET2?").removesuffix("V"))
-                )
-                self.__channel_1_current = Current(
-                    float(communicate(self.__serial_port, "ISET1?").removesuffix("A"))
-                )
-                self.__channel_2_current = Current(
-                    float(communicate(self.__serial_port, "ISET2?").removesuffix("A"))
-                )
             else:
                 raise Exception(
                     "Either this is not a Supply, or could not connect to Supply"
@@ -269,16 +140,71 @@ class Supply:
     def __repr__(self) -> str:
         return f"{self.model}({self.serial})"
 
+    def __write_line(self, command: str) -> None:
+        self.__serial_port.write(command.encode("ascii") + b"\n")
+
+    def __read_line(self) -> str:
+        return self.__serial_port.readline().decode("ascii").strip()
+
+    def __communicate(self, command: str) -> Union[str, None]:
+        while not self.__serial_port.is_open:
+            self.__serial_port.open()
+            sleep(0.01)
+        self.__write_line(self.__serial_port, command)
+        try:
+            response = self.__read_line(self.__serial_port)
+        except:
+            response = None
+        self.__serial_port.close()
+        return response
+
+    def __state(self) -> State:
+        return State(self.__communicate("STATUS?"))
+
+    def __get_voltage(self, channel: Channel) -> Voltage:
+        response = self.__communicate(f"VOUT{channel.number}?")
+        if response is None:
+            raise Exception("Did not receive response from Supply")
+        if "Invalid Character" in response:
+            raise Exception(f"Channel {channel.number} does not exist")
+        return Voltage(float(response.removesuffix("V")))
+
+    def __set_voltage(self, channel: Channel) -> bool:
+        response = self.__communicate(f"VSET{channel.number}:{channel.voltage}")
+        if response is not None:
+            if "Invalid Character" in response:
+                raise Exception(f"Channel {channel.number} does not exist")
+            elif "Data out of range" in response:
+                raise Exception(f"Voltage {channel.voltage} is out of range")
+            elif "Command not allowed" in response:
+                raise Exception(
+                    f"Cannot set voltage on {channel.number} while in {self.__tracking} mode"
+                )
+        return response == None
+
+    def __get_current(self, channel: Channel) -> Current:
+        response = self.__communicate(f"IOUT{channel.number}?")
+        if response is None:
+            raise Exception("Did not receive response from Supply")
+        if "Invalid Character" in response:
+            raise Exception(f"Channel {channel.number} does not exist")
+        return Current(float(response.removesuffix("A")))
+
+    def __set_current(self, channel: Channel) -> bool:
+        response = self.__communicate(f"ISET{channel.number}:{channel.current}")
+        if response is not None:
+            if "Invalid Character" in response:
+                print(f"Channel {channel.number} does not exist")
+            elif "Data out of range" in response:
+                print(f"Current {channel.current} is out of range")
+            elif "Command not allowed" in response:
+                print(
+                    f"Cannot set current on {channel.number} while in {self.__tracking} mode"
+                )
+        return response == None
+
     @overload
     def get(self, property: type[Mode]) -> Mode:
-        ...
-
-    @overload
-    def get(self, property: type[Beep]) -> Beep:
-        ...
-
-    @overload
-    def get(self, property: type[Output]) -> Output:
         ...
 
     @overload
@@ -369,49 +295,109 @@ class Supply:
                 if mode:
                     return status(self.__serial_port).channel_1
 
-    @overload
-    def set(self, beep: Beep) -> None:
         ...
 
     @overload
-    def set(self, output: Output) -> None:
+    def set(
+        self,
+        tracking: Literal[Tracking.Independent],
+        *channels: Union[
+            Channel,
+            tuple[int, Voltage, Current],
+            tuple[int, Voltage],
+            tuple[int, Current],
+        ],
+    ) -> None:
         ...
 
     @overload
-    def set(self, voltage: Voltage) -> None:
+    def set(
+        self,
+        tracking: Literal[Tracking.Series],
+        voltage: Voltage = None,
+        current: Current = None,
+    ) -> None:
         ...
 
     @overload
-    def set(self, current: Current) -> None:
+    def set(
+        self,
+        tracking: Literal[Tracking.Parallel],
+        voltage: Voltage = None,
+        current: Current = None,
+    ) -> None:
         ...
 
-    @overload
-    def set(self, tracking: Tracking) -> None:
-        ...
+    def set(
+        self,
+        *args,
+        tracking: Tracking = None,
+        output: Output = None,
+        beep: Beep = None,
+        voltage: Voltage = None,
+        current: Current = None,
+        channels=None,
+    ) -> None:
+        track_arg = [arg for arg in args if isinstance(arg, Tracking)]
+        tracking = track_arg[0] if any(track_arg) else tracking
 
-    @overload
-    def set(self, voltage: Voltage, current: Current) -> None:
-        ...
+        out_arg = [arg for arg in args if isinstance(arg, Output)]
+        output = out_arg[0] if any(out_arg) else output
 
-    @overload
-    def set(self, channel: Channel, voltage: Voltage) -> None:
-        ...
+        if output is not None and output != self.__output and output == Output.Off:
+            command(self.__serial_port, f"OUT{output.value}")
+            self.__output = output
+            return None
 
-    @overload
-    def set(self, channel: Channel, current: Current) -> None:
-        ...
+        beep_arg = [arg for arg in args if isinstance(arg, Beep)]
+        beep = beep_arg[0] if any(beep_arg) else beep
 
-    @overload
-    def set(self, channel: Channel, voltage: Voltage, current: Current) -> None:
-        ...
+        if beep is not None and beep != self.__beep:
+            command(self.__serial_port, f"BEEP{beep.value}")
+            self.__beep = beep
+            return None
 
-    @overload
-    def set(self, tracking: Tracking, voltage: Voltage, current: Current) -> None:
-        ...
+        if tracking is not None and tracking != self.__tracking:
+            command(self.__serial_port, f"TRACK{tracking.value}")
+            self.__tracking = tracking
+            self.__output = Output.Off
 
-    def set(self, *args, **kwargs) -> None:
+        match tracking:
+            case Tracking.Independent:
+                pass
+            case Tracking.Series:
+                voltage_arg = [arg for arg in args if isinstance(arg, Voltage)]
+                voltage = voltage_arg[0] if any(voltage_arg) else voltage
+                if voltage is not None and voltage > Voltage(60):
+                    raise Exception("Voltage limit is 60V in series mode")
+                if voltage is not None and voltage != self.__channel_1_voltage:
+                    set_voltage(self.__serial_port, 1, voltage / 2)
+                    self.__channel_1_voltage = voltage / 2
+                    self.__channel_2_voltage = voltage / 2
+                current_arg = [arg for arg in args if isinstance(arg, Current)]
+                current = current_arg[0] if any(current_arg) else current
+                if current is not None and current > Current(3):
+                    raise Exception("Current limit is 3A in series mode")
+                if current is not None and current != self.__channel_1_current:
+                    set_current(self.__serial_port, 1, current)
+                    self.__channel_1_current = current
+                    self.__channel_2_current = Current(3)
+
+            case Tracking.Parallel:
+                pass
+            case None:
+                pass
+
+        pass
+
+    def set(
+        self,
+        tracking: Tracking,
+        voltage: Voltage,
+        current: Current,
+    ) -> None:
         args = list(args)
-        args.extend(kwargs.values())
+        # args.extend(kwargs.values())
 
         tracking = [arg for arg in args if isinstance(arg, Tracking)]
         tracking = tracking[0] if any(tracking) else self.__tracking
@@ -584,3 +570,12 @@ def get_gpds() -> list[Supply]:
         except:
             pass
     return gpds
+
+
+gpd = get_gpds()[0]
+gpd.set(Tracking.Series, Voltage(60), Current(3))
+gpd.set(Tracking.Parallel, Voltage(30), Current(6))
+
+gpd.set(Tracking.Independent, [Channel(1, Voltage(12), Current(1))])
+
+gpd.channel = Channel(1, Voltage(12), Current(1))
