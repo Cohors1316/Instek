@@ -5,6 +5,15 @@ from typing import Union
 from math import sqrt
 
 
+__all__ = [
+    "Volts",
+    "Amps",
+    "Ohms",
+    "Watts",
+    "Mode",
+]
+
+
 class UnitBase:
     __value: Decimal
 
@@ -97,7 +106,7 @@ class Volts(UnitBase):
 
 
 class Amps(UnitBase):
-    def __mul__(self, other) -> Volts | "Watts" |Self:
+    def __mul__(self, other) -> Volts | "Watts" | Self:
         if isinstance(other, Ohms):
             return Volts(self.__value * other.__value)
         if isinstance(other, Volts):
