@@ -20,15 +20,6 @@ __all__ = [
 ]
 
 
-class Channel:
-    voltage: Voltage
-    current: Current
-
-    def __init__(self, voltage: Voltage = None, current: Current = None):
-        self.voltage = voltage
-        self.current = current
-
-
 class GPDX303S:
     __port: Serial
     __manufacturer: str
