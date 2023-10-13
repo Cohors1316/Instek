@@ -12,11 +12,10 @@ from serial.tools.list_ports import comports
 
 __all__ = [
     "get_gpds",
-    "GPD3303",
-    "Voltage",
-    "Current",
-    "Tracking",
-    "Common",
+    "Volts",
+    "Amps",
+    "Ohms",
+    "Watts",
 ]
 
 
