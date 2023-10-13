@@ -105,29 +105,29 @@ class Mode(Enum):
     ConstantVoltage = 1
 
 
-class State:
-    channel_1: Mode
-    channel_2: Mode
-    channel_4: Mode
-    output: bool
-    tracking: Tracking
-    beep: bool
+# class State:
+#     channel_1: Mode
+#     channel_2: Mode
+#     channel_4: Mode
+#     output: bool
+#     tracking: Tracking
+#     beep: bool
 
-    def __init__(self, response: str):
-        self.channel_1 = Mode(int(response[0]))
-        self.channel_2 = Mode(int(response[1]))
-        tracking = response[2:4]
-        if tracking == "01":
-            self.tracking = Tracking.Independent
-        elif tracking == "11":
-            self.tracking = Tracking.Series
-        elif tracking == "10":
-            self.tracking = Tracking.Parallel
-        self.beep = bool(int(response[4]))
-        self.output = bool(int(response[5]))
+#     def __init__(self, response: str):
+#         self.channel_1 = Mode(int(response[0]))
+#         self.channel_2 = Mode(int(response[1]))
+#         tracking = response[2:4]
+#         if tracking == "01":
+#             self.tracking = Tracking.Independent
+#         elif tracking == "11":
+#             self.tracking = Tracking.Series
+#         elif tracking == "10":
+#             self.tracking = Tracking.Parallel
+#         self.beep = bool(int(response[4]))
+#         self.output = bool(int(response[5]))
 
-    def __str__(self) -> str:
-        return f"State({self.channel_1}, {self.channel_2}, {self.tracking}, {self.beep}, {self.output})"
+#     def __str__(self) -> str:
+#         return f"State({self.channel_1}, {self.channel_2}, {self.tracking}, {self.beep}, {self.output})"
 
-    def __repr__(self) -> str:
-        return f"State({self.channel_1}, {self.channel_2}, {self.tracking}, {self.beep}, {self.output})"
+#     def __repr__(self) -> str:
+#         return f"State({self.channel_1}, {self.channel_2}, {self.tracking}, {self.beep}, {self.output})"
