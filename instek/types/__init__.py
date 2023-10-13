@@ -1,15 +1,20 @@
 from enum import Enum
 from typing import Self
+from decimal import Decimal
+from typing import Union
+from math import sqrt
 
 
 class UnitBase:
-    __value: float
+    __value: Decimal
 
-    def __init__(self, value: float = 0):
-        self.__value = float(round(value, 3))
+    def __init__(self, value: Union[Decimal, float, str, int] = 0):
+        if not isinstance(value, (Decimal, int, str, float)):
+            value = str(value)
+        self.__value = value
 
     def __str__(self) -> str:
-        return f"{self.__value}"
+        return f"{round(self.__value, 3)}"
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.__value})"
@@ -20,114 +25,127 @@ class UnitBase:
     def __int__(self) -> int:
         return int(self.__value)
 
-    def __eq__(self, other: int | float) -> bool:
-        if isinstance(other, self.__class__):
-            return self.__value == other.__value
-        else:
-            return self.__value == other
+    def __bool__(self) -> bool:
+        return bool(self.__value)
 
-    def __gt__(self, other: int | float) -> bool:
-        if isinstance(other, self.__class__):
-            return self.__value > other.__value
-        else:
-            return self.__value > other
+    def __hash__(self) -> int:
+        return hash(self.__repr__())
 
-    def __lt__(self, other: int | float) -> bool:
-        if isinstance(other, self.__class__):
-            return self.__value < other.__value
-        else:
-            return self.__value < other
+    def __abs__(self) -> Self:
+        return self.__class__(abs(self.__value))
 
-    def __add__(self, other: int | float) -> Self:
-        if isinstance(other, self.__class__):
-            return self.__class__(self.__value + other.__value)
-        else:
-            return self.__class__(self.__value + other)
+    def __pow__(self, other: Union[Decimal, int, float, str]) -> Self:
+        return self.__class__(self.__value ** self.__class__(other).__value)
 
-    def __sub__(self, other: int | float) -> Self:
-        if isinstance(other, self.__class__):
-            return self.__class__(self.__value - other.__value)
-        else:
-            return self.__class__(self.__value - other)
+    def __eq__(self, other: Union[Decimal, int, float, str]) -> bool:
+        if isinstance(other, (Decimal, int, float, str, self.__class__)):
+            return self.__value == self.__class__(other).__value
+        raise TypeError(f"Cannot compare {self.__class__.__name__} with {type(other)}")
 
-    def __mul__(self, other: int | float) -> Self:
-        if isinstance(other, self.__class__):
-            return self.__class__(self.__value * other.__value)
-        else:
-            return self.__class__(self.__value * other)
+    def __gt__(self, other: Union[Decimal, int, float, str]) -> bool:
+        if isinstance(other, (Decimal, int, float, str, self.__class__)):
+            return self.__value > self.__class__(other).__value
+        raise TypeError(f"Cannot compare {self.__class__.__name__} with {type(other)}")
 
-    def __truediv__(self, other: int | float) -> Self:
-        if isinstance(other, self.__class__):
-            return self.__class__(self.__value / other.__value)
-        else:
-            return self.__class__(self.__value / other)
+    def __lt__(self, other: Union[Decimal, int, float, str]) -> bool:
+        if isinstance(other, (Decimal, int, float, str, self.__class__)):
+            return self.__value < self.__class__(other).__value
+        raise TypeError(f"Cannot compare {self.__class__.__name__} with {type(other)}")
 
-    def __floordiv__(self, other: int | float) -> Self:
-        if isinstance(other, self.__class__):
-            return self.__class__(self.__value // other.__value)
-        else:
-            return self.__class__(self.__value // other)
+    def __add__(self, other: Union[Decimal, int, float, str]) -> Self:
+        if isinstance(other, (Decimal, int, float, str, self.__class__)):
+            return self.__class__(self.__value + self.__class__(other).__value)
+        raise TypeError(f"Cannot add {self.__class__.__name__} with {type(other)}")
+
+    def __sub__(self, other: Union[Decimal, int, float, str]) -> Self:
+        if isinstance(other, (Decimal, int, float, str, self.__class__)):
+            return self.__class__(self.__value - self.__class__(other).__value)
+        raise TypeError(f"Cannot subtract {self.__class__.__name__} with {type(other)}")
+
+    def __mul__(self, other: Union[Decimal, int, float, str]) -> Self:
+        return self.__class__(self.__value * self.__class__(other).__value)
+
+    def __truediv__(self, other: Union[Decimal, int, float, str]) -> Self:
+        return self.__class__(self.__value / self.__class__(other).__value)
+
+    def __floordiv__(self, other: Union[Decimal, int, float, str]) -> Self:
+        return self.__class__(self.__value // self.__class__(other).__value)
 
 
-class Voltage(UnitBase):
-    pass
+def __throw_error(self, other, operation: str) -> None:
+    raise TypeError(
+        f"Cannot {operation} {self.__class__.__name__} by {other.__class__.__name__}"
+    )
 
 
-class Current(UnitBase):
-    pass
+class Volts(UnitBase):
+    def __mul__(self, other) -> "Watts" | Self:
+        if isinstance(other, Amps):
+            return Watts(self.__value * other.__value)
+        if isinstance(other, (Ohms, Watts)):
+            __throw_error(self, other, "multiply")
+        return super().__mul__(other)
+
+    def __truediv__(self, other) -> "Amps" | "Ohms" | Self:
+        if isinstance(other, Amps):
+            return Ohms(self.__value / other.__value)
+        if isinstance(other, Ohms):
+            return Amps(self.__value / other.__value)
+        if isinstance(other, Watts):
+            return Ohms((self.__value**2) / other.__value)
+        return super().__truediv__(other)
 
 
-class Common:
-    pass
+class Amps(UnitBase):
+    def __mul__(self, other) -> Volts | "Watts" |Self:
+        if isinstance(other, Ohms):
+            return Volts(self.__value * other.__value)
+        if isinstance(other, Volts):
+            return Watts(self.__value * other.__value)
+        if isinstance(other, Watts):
+            __throw_error(self, other, "multiply")
+        return super().__mul__(other)
+
+    def __truediv__(self, other) -> Self:
+        if isinstance(other, (Volts, Ohms, Watts)):
+            __throw_error(self, other, "divide")
+        return super().__truediv__(other)
 
 
-class Channel:
-    number: int
-    voltage: Voltage
-    current: Current
+class Ohms(UnitBase):
+    def __mul__(self, other) -> Volts | Self:
+        if isinstance(other, Amps):
+            return Volts(self.__value * other.__value)
+        if isinstance(other, Watts):
+            return Volts(sqrt(self.__value / other.__value))
+        if isinstance(other, Volts):
+            __throw_error(self, other, "multiply")
+        return super().__mul__(other)
 
-    def __init__(self, number: int, voltage: Voltage = None, current: Current = None):
-        self.__channel = number
-        self.voltage = voltage
-        self.current = current
+    def __truediv__(self, other) -> Self:
+        if isinstance(other, (Watts, Volts, Amps)):
+            __throw_error(self, other, "divide")
+        return super().__truediv__(other)
 
-    def __str__(self) -> str:
-        return f"Channel({self.__channel}, {self.voltage}, {self.current})"
 
-class Tracking(Enum):
-    Independent = 0
-    Series = 1
-    Parallel = 2
+class Watts(UnitBase):
+    def __mul__(self, other) -> Volts | Self:
+        if isinstance(other, Ohms):
+            return Volts(sqrt(self.__value * other.__value))
+        if isinstance(other, (Volts, Amps)):
+            __throw_error(self, other, "multiply")
+        return super().__mul__(other)
+
+    def __truediv__(self, other) -> Amps | Volts | Self:
+        if isinstance(other, Volts):
+            return Amps(self.__value / other.__value)
+        if isinstance(other, Amps):
+            return Volts(self.__value / other.__value)
+        if isinstance(other, Ohms):
+            return Amps(sqrt(self.__value / other.__value))
+        return super().__truediv__(other)
 
 
 class Mode(Enum):
     ConstantCurrent = 0
     ConstantVoltage = 1
-
-
-# class State:
-#     channel_1: Mode
-#     channel_2: Mode
-#     channel_4: Mode
-#     output: bool
-#     tracking: Tracking
-#     beep: bool
-
-#     def __init__(self, response: str):
-#         self.channel_1 = Mode(int(response[0]))
-#         self.channel_2 = Mode(int(response[1]))
-#         tracking = response[2:4]
-#         if tracking == "01":
-#             self.tracking = Tracking.Independent
-#         elif tracking == "11":
-#             self.tracking = Tracking.Series
-#         elif tracking == "10":
-#             self.tracking = Tracking.Parallel
-#         self.beep = bool(int(response[4]))
-#         self.output = bool(int(response[5]))
-
-#     def __str__(self) -> str:
-#         return f"State({self.channel_1}, {self.channel_2}, {self.tracking}, {self.beep}, {self.output})"
-
-#     def __repr__(self) -> str:
-#         return f"State({self.channel_1}, {self.channel_2}, {self.tracking}, {self.beep}, {self.output})"
